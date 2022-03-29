@@ -1,7 +1,8 @@
 #pragma once
 
-#include <iostream>
-#include <utility>
+#include <inttypes.h>
+#include "FractionExceptions.h"
+
 
 /*
  * Класс "Дробь" использует описанные ниже типы
@@ -10,22 +11,17 @@
  * расчетов, однако это увеличит размер дроби, или на более короткие, это
  * понизит точность расчетов, но уменьшит занимаемый классом объем памяти.
  * */
+
 typedef double floatT;
-typedef unsigned unsignedT;
-typedef int integerT;
+typedef uint8_t unsignedT;
+typedef int16_t integerT;
 typedef char signT;
-
-class ZeroDenominatorException;
-
-class InvalidFractionInputException;
 
 class Fraction { // Класс "Дробь"
 public:
 
     /* КОНСТРУКТОРЫ */
 
-
-    // Возможно сокращение дроби надо проводить в конструкторах а лучше создать в одном приватном
     Fraction() = default;
 
     explicit Fraction(integerT numerator, integerT denominator);
@@ -39,9 +35,9 @@ public:
 
     inline signT getSign() const;
 
-    inline unsignedT getNum() const;
+    inline unsignedT getNum() const { return num; };
 
-    inline unsignedT getDen() const;
+    inline unsignedT getDen() const { return den; };
 
 
     /* ОПЕРАТОРЫ ПРИВЕДЕНИЯ К ТИПУ */
@@ -101,7 +97,7 @@ public:
     /* ДРУЖЕСТВЕННЫЕ МАТЕМАТИЧЕСКИЕ ФУНКЦИИ */
 
     friend Fraction abs(const Fraction &f) {
-        return Fraction(f.num, f.den, 1);
+        return Fraction(f.getNum(), f.getDen(), 1);
     }
 
     friend Fraction pow(const Fraction &f, int n);
@@ -113,7 +109,7 @@ private:
 
     Fraction(unsignedT num, unsignedT den, signT sign);
 
-    // Сокращает дробь
+    // Сокращает дробь. Внимание! сокращение проводится только в приватном констукторе
     void reduction();
 
     /* Сравнивает дроби, возвращает 0, если они равны, 1,
@@ -131,25 +127,6 @@ private:
      * после считанного числа */
     static unsignedT readNumber(const std::string &s, size_t &i);
 
+    /* Возвращает true, если перемножение беззнаковых чисе*/
+    static bool checkMultiplicationOverflow(unsignedT left, unsignedT right);
 }; // Конец класса "Дробь"
-
-
-class FractionException : public std::exception {
-public:
-    explicit FractionException(std::string str);
-
-    const char *what() const noexcept override;
-
-private:
-    std::string errorMessage;
-};
-
-class ZeroDenominatorException : public FractionException {
-public:
-    explicit ZeroDenominatorException(const std::string &str);
-};
-
-class InvalidFractionInputException : public FractionException {
-public:
-    explicit InvalidFractionInputException(const std::string &str);
-};

@@ -3,4 +3,8 @@ project(fraction)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(fraction main.cpp Fraction/Fraction.cpp Fraction/Fraction.h frac/frac.h frac/frac.cpp)
+
+set(FRACTION_LIB_SOURCES Fraction/Fraction.h Fraction/Fraction.cpp Fraction/FractionExceptions.h Fraction/FractionExceptions.cpp)
+
+add_executable(fraction main.cpp ${FRACTION_LIB_SOURCES})
+add_executable(test test.cpp ${FRACTION_LIB_SOURCES})

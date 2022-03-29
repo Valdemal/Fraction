@@ -2,18 +2,17 @@
 
 /* КОНСТРУКТОРЫ */
 
-Fraction::Fraction(unsignedT num, unsignedT den, signT sign) :
-        num(num), den(den), sign(sign) {}
+Fraction::Fraction(unsignedT num, unsignedT den, signT sign)
+        : num(num), den(den), sign(sign) {
+
+    this->reduction();
+}
 
 Fraction::Fraction(integerT numerator, integerT denominator) {
     if (denominator == 0)
-        throw ZeroDenominatorException("Fraction construction error! Denominator can't be zero!");
+        throw ConstructionException("Denominator can't be zero!");
 
-    this->num = abs(numerator);
-    this->den = abs(denominator);
-    this->sign = numerator * denominator > 0 ? 1 : -1;
-
-    this->reduction();
+    *this = Fraction(abs(numerator), abs(denominator), numerator * denominator > 0 ? 1 : -1);
 }
 
 Fraction::Fraction(integerT val) {
@@ -31,16 +30,8 @@ Fraction::Fraction(const Fraction &copy) :
 
 /* ГЕТТЕРЫ */
 
-signT Fraction::getSign() const {
+inline signT Fraction::getSign() const {
     return sign;
-}
-
-unsignedT Fraction::getNum() const {
-    return num;
-}
-
-unsignedT Fraction::getDen() const {
-    return den;
 }
 
 
@@ -73,36 +64,45 @@ Fraction Fraction::operator-() const {
     return res;
 }
 
-Fraction operator*(const Fraction &left, const Fraction &right){
-    Fraction res(
+Fraction operator*(const Fraction &left, const Fraction &right) {
+    // Проверка на переполнение
+    if (Fraction::checkMultiplicationOverflow(left.getNum(), right.getNum()) ||
+        Fraction::checkMultiplicationOverflow(left.getDen(), right.getDen()))
+        throw OverflowException("Multiplication Overflow");
+
+    return Fraction(
             left.getNum() * right.getNum(),
             left.getDen() * right.getDen(),
             left.getSign() * right.getSign()
     );
-    res.reduction();
-    return res;
+
 }
 
-Fraction operator/(const Fraction &left, const Fraction &right){
+Fraction operator/(const Fraction &left, const Fraction &right) {
+    // Проверка деления на нулевую дробь
     if (right.getNum() == 0)
-        throw ZeroDenominatorException("Division on zero fraction!");
+        throw ZeroDivisionException("Division on zero fraction!");
 
-    Fraction res(
+    // Проверка на переполнение
+    if (Fraction::checkMultiplicationOverflow(left.getNum(), right.getDen()) ||
+        Fraction::checkMultiplicationOverflow(left.getDen(), right.getNum()))
+        throw OverflowException("Division Overflow");
+
+    return Fraction(
             left.getNum() * right.getDen(),
             left.getDen() * right.getNum(),
             left.getSign() * right.getSign()
     );
-
-    res.reduction();
-    return res;
 }
 
-Fraction operator-(const Fraction &left, const Fraction &right){
+Fraction operator-(const Fraction &left, const Fraction &right) {
     return left + (-right);
 }
 
 Fraction operator+(const Fraction &left, const Fraction &right) {
+    // Проверить на перполнение при приведении к общему знаменателю
     unsignedT commonDen = Fraction::scm(left.getDen(), right.getDen());
+
 
     unsignedT leftNum = left.getNum() * commonDen / left.getDen();
     unsignedT rightNum = right.getNum() * commonDen / right.getDen();
@@ -110,6 +110,8 @@ Fraction operator+(const Fraction &left, const Fraction &right) {
     Fraction res;
 
     if (left.getSign() == right.getSign()) {
+        // Проверить на переполнение при сложении
+
         res = Fraction(leftNum + rightNum, commonDen, left.getSign());
     } else {
         unsignedT maxNum, minNum;
@@ -129,34 +131,33 @@ Fraction operator+(const Fraction &left, const Fraction &right) {
         res = Fraction(maxNum - minNum, commonDen, maxSign);
     }
 
-    res.reduction();
     return res;
 }
 
 
 /* ОПЕРАТОРЫ СРАВНЕНИЯ */
 
-bool operator==(const Fraction &left, const Fraction &right){
+bool operator==(const Fraction &left, const Fraction &right) {
     return Fraction::compareFractions(left, right) == 0;
 }
 
-bool operator!=(const Fraction &left, const Fraction &right){
+bool operator!=(const Fraction &left, const Fraction &right) {
     return Fraction::compareFractions(left, right) != 0;
 }
 
-bool operator>(const Fraction &left, const Fraction &right){
+bool operator>(const Fraction &left, const Fraction &right) {
     return Fraction::compareFractions(left, right) == 1;
 }
 
-bool operator<(const Fraction &left, const Fraction &right){
+bool operator<(const Fraction &left, const Fraction &right) {
     return Fraction::compareFractions(left, right) == -1;
 }
 
-bool operator>=(const Fraction &left, const Fraction &right){
+bool operator>=(const Fraction &left, const Fraction &right) {
     return Fraction::compareFractions(left, right) > -1;
 }
 
-bool operator<=(const Fraction &left, const Fraction &right){
+bool operator<=(const Fraction &left, const Fraction &right) {
     return Fraction::compareFractions(left, right) < 1;
 }
 
@@ -203,26 +204,23 @@ std::istream &operator>>(std::istream &in, Fraction &f) {
     }
 
     unsignedT num = Fraction::readNumber(s, i);
+    unsignedT den;
 
     if (i == s.length())
-        f.den = 1;
+        den = 1;
     else {
         if (s[i] == '/')
             i++;
         else
-            throw InvalidFractionInputException("Read Fraction Error");
+            throw InvalidInputException("Read Fraction Error");
 
-        unsignedT den = Fraction::readNumber(s, i);
+        den = Fraction::readNumber(s, i);
 
         if (den == 0)
-            throw ZeroDenominatorException("Denominator can't takes zero value!");
-
-        f.den = den;
+            throw ConstructionException("Denominator can't takes zero value!");
     }
 
-    f.num = num;
-    f.sign = sign;
-    f.reduction();
+    f = Fraction(num, den, sign);
 
     return in;
 }
@@ -316,18 +314,10 @@ unsignedT Fraction::readNumber(const std::string &s, size_t &i) {
     return num;
 }
 
+bool Fraction::checkMultiplicationOverflow(unsignedT left, unsignedT right) {
+    if (left == 0 || right == 0)
+        return false;
 
-/* ИСКЛЮЧЕНИЯ */
-
-FractionException::FractionException(std::string str) :
-        errorMessage(std::move(str)) {}
-
-const char *FractionException::what() const noexcept {
-    return errorMessage.c_str();
+    unsignedT maxValueOfType = ~0;
+    return (maxValueOfType / left) < right;
 }
-
-ZeroDenominatorException::ZeroDenominatorException(const std::string &str) :
-        FractionException(str) {};
-
-InvalidFractionInputException::InvalidFractionInputException(const std::string &str) :
-        FractionException(str) {}
