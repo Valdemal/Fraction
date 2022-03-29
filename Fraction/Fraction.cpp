@@ -86,7 +86,7 @@ Fraction operator/(const Fraction &left, const Fraction &right) {
     // Проверка на переполнение
     if (Fraction::checkMultiplicationOverflow(left.getNum(), right.getDen()) ||
         Fraction::checkMultiplicationOverflow(left.getDen(), right.getNum()))
-        throw OverflowException("Division Overflow");
+        throw OverflowException("Division Overflow!");
 
     return Fraction(
             left.getNum() * right.getDen(),
@@ -100,38 +100,31 @@ Fraction operator-(const Fraction &left, const Fraction &right) {
 }
 
 Fraction operator+(const Fraction &left, const Fraction &right) {
-    // Проверить на перполнение при приведении к общему знаменателю
-    unsignedT commonDen = Fraction::scm(left.getDen(), right.getDen());
-
-
-    unsignedT leftNum = left.getNum() * commonDen / left.getDen();
-    unsignedT rightNum = right.getNum() * commonDen / right.getDen();
-
-    Fraction res;
+    Fraction::commonDenStruct cds(left, right);
 
     if (left.getSign() == right.getSign()) {
-        // Проверить на переполнение при сложении
+        // Проверка на переполнение при сложении
+        if (Fraction::checkAdditionOverflow(cds.leftNum, cds.rightNum))
+            throw OverflowException("Addition Overflow!");
 
-        res = Fraction(leftNum + rightNum, commonDen, left.getSign());
+        return Fraction(cds.leftNum + cds.rightNum, cds.commonDen, left.getSign());
     } else {
         unsignedT maxNum, minNum;
         signT maxSign;
 
-        if (leftNum > rightNum) {
-            maxNum = leftNum;
-            minNum = rightNum;
-            maxSign = left.sign;
-        } else if (leftNum < rightNum) {
-            maxNum = rightNum;
-            minNum = leftNum;
-            maxSign = right.sign;
+        if (cds.leftNum > cds.rightNum) {
+            maxNum = cds.leftNum;
+            minNum = cds.rightNum;
+            maxSign = left.getSign();
+        } else if (cds.leftNum < cds.rightNum) {
+            maxNum = cds.rightNum;
+            minNum = cds.leftNum;
+            maxSign = right.getSign();
         } else
             return Fraction();
 
-        res = Fraction(maxNum - minNum, commonDen, maxSign);
+        return Fraction(maxNum - minNum, cds.commonDen, maxSign);
     }
-
-    return res;
 }
 
 
@@ -261,13 +254,14 @@ Fraction pow(const Fraction &f, int n) {
 /* ВСПОМОГАТЕЛЬНЫЕ ПРИВАТНЫЕ СТАТИЧЕСКИЕ ФУНКЦИИ*/
 
 void Fraction::reduction() {
-    integerT k = gcd(this->num, this->den);
+    unsignedT k = gcd(this->num, this->den);
 
     this->num /= k;
     this->den /= k;
 }
 
 unsignedT Fraction::gcd(unsignedT a, unsignedT b) {
+
     while (a * b != 0) {
         if (a > b)
             a %= b;
@@ -278,7 +272,7 @@ unsignedT Fraction::gcd(unsignedT a, unsignedT b) {
     return a + b;
 }
 
-integerT Fraction::scm(unsignedT a, unsignedT b) {
+unsignedT Fraction::scm(unsignedT a, unsignedT b) {
     unsignedT k = gcd(a, b);
     return (a * b) / k;
 }
@@ -289,16 +283,13 @@ char Fraction::compareFractions(const Fraction &left, const Fraction &right) {
     else if (left.getSign() < right.getSign())
         return -1;
     else {
-        unsignedT commonDen = scm(left.getDen(), right.getDen());
-
-        unsignedT leftNum = left.getNum() * commonDen / left.getDen();
-        unsignedT rightNum = right.getNum() * commonDen / right.getDen();
+        commonDenStruct cds(left, right);
 
         bool isPositive = left.getSign() == 1;
 
-        if (leftNum > rightNum)
+        if (cds.leftNum > cds.rightNum)
             return isPositive ? 1 : -1;
-        else if (leftNum < rightNum)
+        else if (cds.leftNum < cds.rightNum)
             return isPositive ? -1 : 1;
         else
             return 0;
@@ -320,4 +311,33 @@ bool Fraction::checkMultiplicationOverflow(unsignedT left, unsignedT right) {
 
     unsignedT maxValueOfType = ~0;
     return (maxValueOfType / left) < right;
+}
+
+bool Fraction::checkAdditionOverflow(unsignedT left, unsignedT right) {
+    unsignedT res = left + right;
+    return res < left || res < right;
+}
+
+Fraction::commonDenStruct::commonDenStruct(const Fraction &left, const Fraction &right) {
+    // Наверное можно сделать оптимальнее
+    if (left.getDen() != right.getDen()) {
+        if (checkMultiplicationOverflow(left.getDen(), right.getDen()) ||
+            checkAdditionOverflow(left.getDen(), right.getDen()))
+
+            throw OverflowException("Common Denominator Error!");
+
+        this->commonDen = scm(left.getDen(), right.getDen());
+
+        if (checkMultiplicationOverflow(left.getNum(), commonDen) ||
+            checkMultiplicationOverflow(right.getNum(), commonDen))
+
+            throw OverflowException("Common Denominator Error!");
+
+        this->leftNum = left.getNum() * commonDen / left.getDen();
+        this->rightNum = right.getNum() * commonDen / right.getDen();
+    } else {
+        this->commonDen = left.getDen();
+        this->rightNum = right.getNum();
+        this->leftNum = left.getNum();
+    }
 }

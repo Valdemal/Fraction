@@ -1,6 +1,7 @@
 #pragma once
 
 #include <inttypes.h>
+#include <string>
 #include "FractionExceptions.h"
 
 
@@ -13,8 +14,8 @@
  * */
 
 typedef double floatT;
-typedef uint8_t unsignedT;
-typedef int16_t integerT;
+typedef uint32_t unsignedT;
+typedef int64_t integerT;
 typedef char signT;
 
 class Fraction { // Класс "Дробь"
@@ -107,7 +108,17 @@ private:
     unsignedT den{1};
     signT sign{1};
 
+
     Fraction(unsignedT num, unsignedT den, signT sign);
+
+    // Вспомогательная структура для вычисления общего знаменателю
+    struct commonDenStruct {
+        unsignedT leftNum, rightNum, commonDen;
+
+        commonDenStruct() = delete;
+
+        commonDenStruct(const Fraction &left, const Fraction &right);
+    };
 
     // Сокращает дробь. Внимание! сокращение проводится только в приватном констукторе
     void reduction();
@@ -120,13 +131,19 @@ private:
     static unsignedT gcd(unsignedT a, unsignedT b);
 
     // Возвращает наименьшее общее кратное a и b
-    static integerT scm(unsignedT a, unsignedT b);
+    static unsignedT scm(unsignedT a, unsignedT b);
 
     /* Возращает беззнаковое число считанное из строки s начиная с позиции i
      * или 0, если считать число невозможно. i присваивается номер позиции
      * после считанного числа */
     static unsignedT readNumber(const std::string &s, size_t &i);
 
-    /* Возвращает true, если перемножение беззнаковых чисе*/
+    /* Возвращает true, если перемножение беззнаковых чисел left и right
+     * преводит к переполнению, иначе false*/
     static bool checkMultiplicationOverflow(unsignedT left, unsignedT right);
+
+    /* Возвращает true, если сложение беззнаковых чисел left и right
+     * преводит к переполнению, иначе false*/
+    static bool checkAdditionOverflow(unsignedT left, unsignedT right);
+
 }; // Конец класса "Дробь"
